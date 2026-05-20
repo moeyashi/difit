@@ -14,6 +14,13 @@ export interface PrismSyntaxHighlighterProps {
   className?: string;
   syntaxTheme?: AppearanceSettings['syntaxTheme'];
   filename?: string;
+  /**
+   * Pre-computed tokens for a single line. When provided, these tokens are
+   * rendered instead of tokenizing `code` per line. Used for file-level
+   * highlighting of markup-based languages (e.g. Vue SFC) where each line
+   * needs context from the surrounding `<script>` / `<style>` tags.
+   */
+  precomputedTokens?: Token[] | null;
   renderToken?: (
     token: Token,
     key: number,
@@ -29,6 +36,7 @@ export const PrismSyntaxHighlighter = React.memo(function PrismSyntaxHighlighter
   className,
   syntaxTheme = 'vsDark',
   filename = '',
+  precomputedTokens,
   renderToken,
   onMouseOver,
   onMouseOut,
@@ -36,19 +44,20 @@ export const PrismSyntaxHighlighter = React.memo(function PrismSyntaxHighlighter
   const detectedLang = language || (filename ? getPrismLanguageFromFilename(filename) : 'text');
   const { actualLang } = useHighlightedCode(code, detectedLang);
   const theme = getSyntaxTheme(syntaxTheme);
+  const hasPrecomputed = !!precomputedTokens;
 
-  // Memoize the render function to prevent recreation on every render
   const renderHighlight = useCallback(
-    ({ style, tokens, getLineProps, getTokenProps }: RenderProps) => (
-      <span
-        className={className}
-        style={{ ...style, background: 'transparent', backgroundColor: 'transparent' }}
-        onMouseOver={onMouseOver}
-        onMouseOut={onMouseOut}
-      >
-        {tokens.map((line, i) => (
-          <span key={i} {...getLineProps({ line })}>
-            {line.map((token, key) =>
+    ({ style, tokens, getLineProps, getTokenProps }: RenderProps) => {
+      const lineTokens = precomputedTokens ?? tokens[0] ?? [];
+      return (
+        <span
+          className={className}
+          style={{ ...style, background: 'transparent', backgroundColor: 'transparent' }}
+          onMouseOver={onMouseOver}
+          onMouseOut={onMouseOut}
+        >
+          <span {...getLineProps({ line: lineTokens })}>
+            {lineTokens.map((token, key) =>
               renderToken ? (
                 renderToken(token, key, getTokenProps)
               ) : (
@@ -56,14 +65,19 @@ export const PrismSyntaxHighlighter = React.memo(function PrismSyntaxHighlighter
               ),
             )}
           </span>
-        ))}
-      </span>
-    ),
-    [className, onMouseOver, onMouseOut, renderToken],
+        </span>
+      );
+    },
+    [className, onMouseOver, onMouseOut, renderToken, precomputedTokens],
   );
 
+  // When precomputed tokens are provided we don't need Prism to tokenize the
+  // line content — pass an empty string to make the internal `useTokenize`
+  // call a no-op while still letting Highlight provide the theme helpers.
+  const codeForHighlight = hasPrecomputed ? '' : code;
+
   return (
-    <Highlight code={code} language={actualLang} theme={theme} prism={Prism}>
+    <Highlight code={codeForHighlight} language={actualLang} theme={theme} prism={Prism}>
       {renderHighlight}
     </Highlight>
   );

@@ -33,7 +33,7 @@ const DIFF_EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   json: 'json',
   xml: 'xml',
   html: 'html',
-  vue: 'html',
+  vue: 'markup',
   css: 'css',
   scss: 'scss',
   sass: 'sass',
@@ -68,7 +68,7 @@ const PRISM_EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   css: 'css',
   scss: 'css',
   html: 'html',
-  vue: 'html',
+  vue: 'markup',
   sh: 'bash',
   bash: 'bash',
   zsh: 'bash',
@@ -152,4 +152,12 @@ export function getPrismLanguageFromFilename(filename: string): string {
   return (
     getLanguageFromExtension(getFileExtension(filename), PRISM_EXTENSION_LANGUAGE_MAP) || 'text'
   );
+}
+
+// Languages whose grammar inlines other languages (e.g. JS inside <script>, CSS inside <style>).
+// These cannot be highlighted line-by-line because each line lacks the surrounding context.
+const FILE_LEVEL_LANGUAGES = new Set(['markup', 'html', 'xml', 'svg']);
+
+export function requiresFileLevelHighlight(filename: string): boolean {
+  return FILE_LEVEL_LANGUAGES.has(getPrismLanguageFromFilename(filename));
 }
